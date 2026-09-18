@@ -1,0 +1,271 @@
+trigger: none
+
+pr: none
+
+parameters:
+  - name: cdkAction
+    displayName: CDK action
+    type: string
+    default: diff
+    values:
+      - diff
+      - deploy
+      - destroy
+
+variables:
+  # Fixed deployment profile. Change these values here if the target changes.
+  awsRegion: 'us-east-1'
+  azureEnvironment: 'dev'
+  azureDestroyEnvironment: 'dev-destroy'
+  nodeVersion: '20.x'
+  pythonVersion: '3.12'
+  cdkVersion: 'latest'
+  stackName: 'ConnectAsyncMultiResponseStack'
+
+  # CDK context matching scripts/deploy.sh defaults.
+  deployOrchestrator: 'true'
+  deployMockNexthink: 'true'
+  nexthinkBackend: 'mock'
+  claimPhoneNumber: 'false'
+
+stages:
+  - stage: validate
+    displayName: Test, Synth, and Diff
+    condition: eq(variables['Build.SourceBranch'], 'refs/heads/main')
+    jobs:
+      - job: cdk_validate
+        displayName: Validate CDK stack
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - checkout: self
+
+          - task: NodeTool@0
+            displayName: Install Node.js
+            inputs:
+              versionSpec: $(nodeVersion)
+
+          - task: UsePythonVersion@0
+            displayName: Install Python
+            inputs:
+              versionSpec: $(pythonVersion)
+
+          - script: |
+              set -euo pipefail
+              npm install --global "aws-cdk@$(cdkVersion)"
+              python -m pip install --upgrade pip
+              python -m pip install --editable ".[dev,infra]"
+            displayName: Install dependencies
+
+          - script: |
+              set -euo pipefail
+              python -m pytest tests -v
+            displayName: Run tests
+
+          - script: |
+              set -euo pipefail
+
+              for name in AWS_OIDC_ROLE_ARN CONNECT_INSTANCE_ARN CONNECT_INSTANCE_URL; do
+                value="${!name}"
+                if [ -z "$value" ] || [[ "$value" == \$\(* ]]; then
+                  echo "Pipeline variable $name is not configured."
+                  exit 1
+                fi
+              done
+
+              OIDC_RESPONSE="$(curl --fail --silent --show-error \
+                --request POST \
+                --header "Authorization: Bearer ${SYSTEM_ACCESSTOKEN}" \
+                --header "Content-Length: 0" \
+                "${SYSTEM_OIDCREQUESTURI}?api-version=7.1-preview.1")"
+              OIDC_TOKEN="$(printf '%s' "$OIDC_RESPONSE" | python -c 'import json, sys; print(json.load(sys.stdin)["oidcToken"])')"
+              AWS_WEB_IDENTITY_TOKEN_FILE="$(Agent.TempDirectory)/aws-oidc-token"
+              printf '%s' "$OIDC_TOKEN" > "$AWS_WEB_IDENTITY_TOKEN_FILE"
+
+              export AWS_ROLE_ARN="$AWS_OIDC_ROLE_ARN"
+              export AWS_WEB_IDENTITY_TOKEN_FILE
+              export AWS_ROLE_SESSION_NAME="azure-pipelines-$(Build.BuildId)"
+              export AWS_REGION='$(awsRegion)'
+              export AWS_DEFAULT_REGION='$(awsRegion)'
+
+              CDK_CONTEXT_ARGS=(
+                -c "connect_instance_arn=$CONNECT_INSTANCE_ARN"
+                -c "connect_instance_url=$CONNECT_INSTANCE_URL"
+                -c "deploy_orchestrator=$(deployOrchestrator)"
+                -c "deploy_mock_nexthink=$(deployMockNexthink)"
+                -c "nexthink_backend=$(nexthinkBackend)"
+                -c "claim_phone_number=$(claimPhoneNumber)"
+              )
+
+              cdk synth "$(stackName)" "${CDK_CONTEXT_ARGS[@]}"
+              cdk diff "$(stackName)" "${CDK_CONTEXT_ARGS[@]}"
+            displayName: CDK Synth and Diff
+            env:
+              SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+              SYSTEM_OIDCREQUESTURI: $(System.OidcRequestUri)
+              AWS_OIDC_ROLE_ARN: $(AWS_DEV_OIDC_ROLE_ARN)
+              CONNECT_INSTANCE_ARN: $(DEV_CONNECT_INSTANCE_ARN)
+              CONNECT_INSTANCE_URL: $(DEV_CONNECT_INSTANCE_URL)
+
+  - stage: deploy
+    displayName: Deploy to AWS
+    dependsOn: validate
+    condition: and(succeeded(), eq('${{ parameters.cdkAction }}', 'deploy'), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    jobs:
+      - deployment: cdk_deploy
+        displayName: Deploy CDK stack
+        environment: $(azureEnvironment)
+        pool:
+          vmImage: ubuntu-latest
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+
+                - task: NodeTool@0
+                  displayName: Install Node.js
+                  inputs:
+                    versionSpec: $(nodeVersion)
+
+                - task: UsePythonVersion@0
+                  displayName: Install Python
+                  inputs:
+                    versionSpec: $(pythonVersion)
+
+                - script: |
+                    set -euo pipefail
+                    npm install --global "aws-cdk@$(cdkVersion)"
+                    python -m pip install --upgrade pip
+                    python -m pip install --editable ".[infra]"
+                  displayName: Install dependencies
+
+                - script: |
+                    set -euo pipefail
+
+                    for name in AWS_OIDC_ROLE_ARN CONNECT_INSTANCE_ARN CONNECT_INSTANCE_URL; do
+                      value="${!name}"
+                      if [ -z "$value" ] || [[ "$value" == \$\(* ]]; then
+                        echo "Pipeline variable $name is not configured."
+                        exit 1
+                      fi
+                    done
+
+                    OIDC_RESPONSE="$(curl --fail --silent --show-error \
+                      --request POST \
+                      --header "Authorization: Bearer ${SYSTEM_ACCESSTOKEN}" \
+                      --header "Content-Length: 0" \
+                      "${SYSTEM_OIDCREQUESTURI}?api-version=7.1-preview.1")"
+                    OIDC_TOKEN="$(printf '%s' "$OIDC_RESPONSE" | python -c 'import json, sys; print(json.load(sys.stdin)["oidcToken"])')"
+                    AWS_WEB_IDENTITY_TOKEN_FILE="$(Agent.TempDirectory)/aws-oidc-token"
+                    printf '%s' "$OIDC_TOKEN" > "$AWS_WEB_IDENTITY_TOKEN_FILE"
+
+                    export AWS_ROLE_ARN="$AWS_OIDC_ROLE_ARN"
+                    export AWS_WEB_IDENTITY_TOKEN_FILE
+                    export AWS_ROLE_SESSION_NAME="azure-pipelines-$(Build.BuildId)"
+                    export AWS_REGION='$(awsRegion)'
+                    export AWS_DEFAULT_REGION='$(awsRegion)'
+
+                    CDK_CONTEXT_ARGS=(
+                      -c "connect_instance_arn=$CONNECT_INSTANCE_ARN"
+                      -c "connect_instance_url=$CONNECT_INSTANCE_URL"
+                      -c "deploy_orchestrator=$(deployOrchestrator)"
+                      -c "deploy_mock_nexthink=$(deployMockNexthink)"
+                      -c "nexthink_backend=$(nexthinkBackend)"
+                      -c "claim_phone_number=$(claimPhoneNumber)"
+                    )
+
+                    cdk deploy "$(stackName)" \
+                      "${CDK_CONTEXT_ARGS[@]}" \
+                      --no-rollback \
+                      --require-approval never
+
+                    python scripts/sync_callback_api_key.py
+                    python scripts/post_deploy.py --region '$(awsRegion)'
+                    python scripts/post_deploy.py --region '$(awsRegion)' --tools
+                  displayName: CDK Deploy and Post-Deploy Wiring
+                  env:
+                    SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+                    SYSTEM_OIDCREQUESTURI: $(System.OidcRequestUri)
+                    AWS_OIDC_ROLE_ARN: $(AWS_DEV_OIDC_ROLE_ARN)
+                    CONNECT_INSTANCE_ARN: $(DEV_CONNECT_INSTANCE_ARN)
+                    CONNECT_INSTANCE_URL: $(DEV_CONNECT_INSTANCE_URL)
+
+  - stage: destroy
+    displayName: Destroy AWS stack
+    dependsOn: validate
+    condition: and(succeeded(), eq('${{ parameters.cdkAction }}', 'destroy'), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    jobs:
+      - deployment: cdk_destroy
+        displayName: Destroy CDK stack
+        environment: $(azureDestroyEnvironment)
+        pool:
+          vmImage: ubuntu-latest
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+
+                - task: NodeTool@0
+                  displayName: Install Node.js
+                  inputs:
+                    versionSpec: $(nodeVersion)
+
+                - task: UsePythonVersion@0
+                  displayName: Install Python
+                  inputs:
+                    versionSpec: $(pythonVersion)
+
+                - script: |
+                    set -euo pipefail
+                    npm install --global "aws-cdk@$(cdkVersion)"
+                    python -m pip install --upgrade pip
+                    python -m pip install --editable ".[infra]"
+                  displayName: Install dependencies
+
+                - script: |
+                    set -euo pipefail
+
+                    for name in AWS_OIDC_ROLE_ARN CONNECT_INSTANCE_ARN CONNECT_INSTANCE_URL; do
+                      value="${!name}"
+                      if [ -z "$value" ] || [[ "$value" == \$\(* ]]; then
+                        echo "Pipeline variable $name is not configured."
+                        exit 1
+                      fi
+                    done
+
+                    OIDC_RESPONSE="$(curl --fail --silent --show-error \
+                      --request POST \
+                      --header "Authorization: Bearer ${SYSTEM_ACCESSTOKEN}" \
+                      --header "Content-Length: 0" \
+                      "${SYSTEM_OIDCREQUESTURI}?api-version=7.1-preview.1")"
+                    OIDC_TOKEN="$(printf '%s' "$OIDC_RESPONSE" | python -c 'import json, sys; print(json.load(sys.stdin)["oidcToken"])')"
+                    AWS_WEB_IDENTITY_TOKEN_FILE="$(Agent.TempDirectory)/aws-oidc-token"
+                    printf '%s' "$OIDC_TOKEN" > "$AWS_WEB_IDENTITY_TOKEN_FILE"
+
+                    export AWS_ROLE_ARN="$AWS_OIDC_ROLE_ARN"
+                    export AWS_WEB_IDENTITY_TOKEN_FILE
+                    export AWS_ROLE_SESSION_NAME="azure-pipelines-destroy-$(Build.BuildId)"
+                    export AWS_REGION='$(awsRegion)'
+                    export AWS_DEFAULT_REGION='$(awsRegion)'
+
+                    CDK_CONTEXT_ARGS=(
+                      -c "connect_instance_arn=$CONNECT_INSTANCE_ARN"
+                      -c "connect_instance_url=$CONNECT_INSTANCE_URL"
+                      -c "deploy_orchestrator=$(deployOrchestrator)"
+                      -c "deploy_mock_nexthink=$(deployMockNexthink)"
+                      -c "nexthink_backend=$(nexthinkBackend)"
+                      -c "claim_phone_number=$(claimPhoneNumber)"
+                    )
+
+                    cdk destroy "$(stackName)" \
+                      "${CDK_CONTEXT_ARGS[@]}" \
+                      --force
+                  displayName: Destroy CDK stack
+                  env:
+                    SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+                    SYSTEM_OIDCREQUESTURI: $(System.OidcRequestUri)
+                    AWS_OIDC_ROLE_ARN: $(AWS_DEV_OIDC_ROLE_ARN)
+                    CONNECT_INSTANCE_ARN: $(DEV_CONNECT_INSTANCE_ARN)
+                    CONNECT_INSTANCE_URL: $(DEV_CONNECT_INSTANCE_URL)
