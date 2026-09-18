@@ -1,0 +1,24 @@
+[
+    {
+        "name": "submit_query",
+        "description": "Submit the caller's question to the Nexthink AI agent for processing. The agent will process the query asynchronously and deliver responses via callback. After calling this tool, begin polling with check_responses.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "transcript": {
+                    "type": "string",
+                    "description": "The caller's transcribed question text."
+                },
+                "sessionId": {
+                    "type": "string",
+                    "description": "Unique session identifier for this interaction."
+                },
+                "callbackUrl": {
+                    "type": "string",
+                    "description": "HTTPS callback URL where Nexthink will deliver responses."
+                }
+            },
+            "required": ["transcript", "sessionId", "callbackUrl"]
+        }
+    }
+]

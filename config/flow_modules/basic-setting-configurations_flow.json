@@ -1,0 +1,256 @@
+{
+  "Version": "2019-10-30",
+  "StartAction": "7cdc4ad8-06ab-4a9c-afe7-b5a5b19db813",
+  "Metadata": {
+    "entryPointPosition": {
+      "x": 40,
+      "y": 40
+    },
+    "ActionMetadata": {
+      "7cdc4ad8-06ab-4a9c-afe7-b5a5b19db813": {
+        "position": {
+          "x": 280,
+          "y": 0
+        }
+      },
+      "Create Connect Assistant session": {
+        "position": {
+          "x": 280,
+          "y": 260
+        },
+        "isFriendlyName": true,
+        "children": ["d11b60f9-4734-4410-857c-4adaca6b134d"],
+        "parameters": {
+          "WisdomAssistantArn": {
+            "displayName": ""
+          }
+        },
+        "fragments": {
+          "SetContactData": "d11b60f9-4734-4410-857c-4adaca6b134d"
+        }
+      },
+      "d11b60f9-4734-4410-857c-4adaca6b134d": {
+        "position": {
+          "x": 280,
+          "y": 260
+        },
+        "dynamicParams": []
+      },
+      "db15e3c7-5a83-427b-bec8-0d1e3f7d5b55": {
+        "position": {
+          "x": 560,
+          "y": 260
+        }
+      },
+      "812ce31d-9605-41c4-b21d-ff39e6cc4795": {
+        "position": {
+          "x": 840,
+          "y": 520
+        }
+      },
+      "9c37426f-cda6-4c2a-9730-5b9357d0c66d": {
+        "position": {
+          "x": 280,
+          "y": 520
+        },
+        "conditions": [],
+        "conditionMetadata": [
+          {
+            "id": "3b902c89-1c19-4781-9fc4-91ea6ba3a454",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "VOICE"
+          }
+        ]
+      },
+      "e92c097a-d088-411e-a2a5-8ff63272ec92": {
+        "position": {
+          "x": 560,
+          "y": 520
+        }
+      }
+    },
+    "Annotations": [
+      {
+        "type": "default",
+        "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+        "content": "Select your Connect Assistant (Wisdom) ARN from the dropdown.\n",
+        "actionId": "Create Connect Assistant session",
+        "isFolded": true,
+        "position": {
+          "x": 432,
+          "y": 533
+        },
+        "size": {
+          "height": 295,
+          "width": 300
+        }
+      }
+    ],
+    "name": "Basic setting configurations",
+    "description": "",
+    "status": "published",
+    "settings": {},
+    "hash": {}
+  },
+  "Actions": [
+    {
+      "Parameters": {
+        "FlowLoggingBehavior": "Enabled"
+      },
+      "Identifier": "7cdc4ad8-06ab-4a9c-afe7-b5a5b19db813",
+      "Type": "UpdateFlowLoggingBehavior",
+      "Transitions": {
+        "NextAction": "Create Connect Assistant session"
+      }
+    },
+    {
+      "Parameters": {
+        "WisdomAssistantArn": ""
+      },
+      "Identifier": "Create Connect Assistant session",
+      "Type": "CreateWisdomSession",
+      "Transitions": {
+        "NextAction": "d11b60f9-4734-4410-857c-4adaca6b134d",
+        "Errors": [
+          {
+            "NextAction": "9c37426f-cda6-4c2a-9730-5b9357d0c66d",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "WisdomSessionArn": "$.Wisdom.SessionArn"
+      },
+      "Identifier": "d11b60f9-4734-4410-857c-4adaca6b134d",
+      "Type": "UpdateContactData",
+      "Transitions": {
+        "NextAction": "9c37426f-cda6-4c2a-9730-5b9357d0c66d",
+        "Errors": [
+          {
+            "NextAction": "9c37426f-cda6-4c2a-9730-5b9357d0c66d",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "RecordingBehavior": {
+          "RecordedParticipants": ["Agent", "Customer"],
+          "IVRRecordingBehavior": "Enabled"
+        },
+        "AnalyticsBehavior": {
+          "Enabled": "True",
+          "AnalyticsLanguage": "en-US",
+          "AnalyticsRedactionBehavior": "Disabled",
+          "AnalyticsRedactionResults": "RedactedAndOriginal",
+          "ChannelConfiguration": {
+            "Chat": {
+              "AnalyticsModes": []
+            },
+            "Voice": {
+              "AnalyticsModes": ["PostContact", "AutomatedInteraction"]
+            }
+          },
+          "SummaryConfiguration": {
+            "SummaryModes": ["PostContact", "AutomatedInteraction"]
+          },
+          "SentimentConfiguration": {
+            "Enabled": "True"
+          }
+        }
+      },
+      "Identifier": "db15e3c7-5a83-427b-bec8-0d1e3f7d5b55",
+      "Type": "UpdateContactRecordingBehavior",
+      "Transitions": {
+        "NextAction": "812ce31d-9605-41c4-b21d-ff39e6cc4795"
+      }
+    },
+    {
+      "Parameters": {},
+      "Identifier": "812ce31d-9605-41c4-b21d-ff39e6cc4795",
+      "Type": "EndFlowModuleExecution",
+      "Transitions": {}
+    },
+    {
+      "Parameters": {
+        "ComparisonValue": "$.Channel"
+      },
+      "Identifier": "9c37426f-cda6-4c2a-9730-5b9357d0c66d",
+      "Type": "Compare",
+      "Transitions": {
+        "NextAction": "e92c097a-d088-411e-a2a5-8ff63272ec92",
+        "Conditions": [
+          {
+            "NextAction": "db15e3c7-5a83-427b-bec8-0d1e3f7d5b55",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": ["VOICE"]
+            }
+          }
+        ],
+        "Errors": [
+          {
+            "NextAction": "e92c097a-d088-411e-a2a5-8ff63272ec92",
+            "ErrorType": "NoMatchingCondition"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "RecordingBehavior": {
+          "RecordedParticipants": [],
+          "IVRRecordingBehavior": "Disabled"
+        },
+        "AnalyticsBehavior": {
+          "Enabled": "True",
+          "AnalyticsLanguage": "en-US",
+          "AnalyticsRedactionBehavior": "Disabled",
+          "AnalyticsRedactionResults": "RedactedAndOriginal",
+          "ChannelConfiguration": {
+            "Chat": {
+              "AnalyticsModes": ["ContactLens"]
+            },
+            "Voice": {
+              "AnalyticsModes": []
+            }
+          },
+          "SummaryConfiguration": {
+            "SummaryModes": ["PostContact", "AutomatedInteraction"]
+          },
+          "SentimentConfiguration": {
+            "Enabled": "True"
+          }
+        }
+      },
+      "Identifier": "e92c097a-d088-411e-a2a5-8ff63272ec92",
+      "Type": "UpdateContactRecordingBehavior",
+      "Transitions": {
+        "NextAction": "812ce31d-9605-41c4-b21d-ff39e6cc4795"
+      }
+    }
+  ],
+  "Settings": {
+    "InputParameters": [],
+    "OutputParameters": [],
+    "Transitions": [
+      {
+        "DisplayName": "Success",
+        "ReferenceName": "Success",
+        "Description": ""
+      },
+      {
+        "DisplayName": "Error",
+        "ReferenceName": "Error",
+        "Description": ""
+      }
+    ]
+  }
+}

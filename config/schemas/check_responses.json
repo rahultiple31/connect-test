@@ -1,0 +1,20 @@
+[
+    {
+        "name": "check_responses",
+        "description": "Poll for new responses from the Nexthink AI agent. Returns any undelivered responses since the given cursor position. Call this repeatedly until status is complete.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "sessionId": {
+                    "type": "string",
+                    "description": "The session identifier from submit_query."
+                },
+                "cursor": {
+                    "type": "integer",
+                    "description": "Last seen sequence number. Use 0 for the first poll."
+                }
+            },
+            "required": ["sessionId", "cursor"]
+        }
+    }
+]

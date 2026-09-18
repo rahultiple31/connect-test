@@ -1,0 +1,33 @@
+[project]
+name = "connect-async-multi-response"
+version = "0.1.0"
+description = "Amazon Connect async multi-response pattern with Nexthink AI agent integration"
+requires-python = ">=3.12"
+dependencies = [
+    "boto3",
+    "pydantic>=2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "hypothesis",
+    "moto[dynamodb,ssm,secretsmanager]",
+    "pytest-cov",
+]
+infra = [
+    "aws-cdk-lib>=2.100.0",
+    "constructs>=10.0.0",
+    "aws-cdk.aws-bedrock-agentcore-alpha",
+]
+
+[tool.setuptools.packages.find]
+include = ["lambdas*", "infrastructure*"]
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

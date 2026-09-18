@@ -1,0 +1,158 @@
+{
+  "name": "Nexthink-Async-MultiResponse-OptionE",
+  "description": "Option E contact flow for the async multi-response pattern. Uses the Orchestrator AI Agent with MCP tools for polling — no custom loop logic in the flow. The flow sets up the environment and hands off to the Orchestrator.",
+  "requirements": ["3.1", "4.1", "8.3"],
+  "notes": [
+    "Contact Lens real-time analytics MUST be enabled before the Connect Assistant block — this is a platform requirement for AI agents on voice.",
+    "Nova Sonic Speech-to-Speech replaces the traditional STT → LLM → TTS pipeline. The voice is set to Generative speaking style.",
+    "All conversation logic (polling, response delivery, hold messaging, interruption handling) is managed by the Orchestrator AI Agent internally — the flow only sets up the environment.",
+    "The Get Customer Input block uses a Lex bot with AMAZON.QinConnectIntent, which enables the Orchestrator to take over the conversation.",
+    "This flow has ~6 blocks compared to 15+ for Option A's Lambda polling loop flow."
+  ],
+  "blocks": [
+    {
+      "id": "1-set-recording",
+      "type": "SetRecordingAndAnalyticsBehavior",
+      "name": "Set Recording & Analytics",
+      "description": "Enables Contact Lens real-time analytics. REQUIRED for Connect AI agents on voice — must precede the Connect Assistant block.",
+      "configuration": {
+        "contactLens": {
+          "enabled": true,
+          "realTimeAnalytics": true,
+          "postCallAnalytics": true
+        },
+        "recording": {
+          "agent": true,
+          "customer": true
+        }
+      },
+      "notes": "Without this block, the AI agent will not function on voice calls. This is a known platform requirement.",
+      "next": "2-set-voice"
+    },
+    {
+      "id": "2-set-voice",
+      "type": "SetVoice",
+      "name": "Set Voice — Nova Sonic Generative",
+      "description": "Configures Nova Sonic Speech-to-Speech with Generative speaking style. Nova Sonic provides natural, expressive voice that adapts to caller tone and sentiment.",
+      "configuration": {
+        "engine": "NovaSonic",
+        "speakingStyle": "Generative",
+        "voice": {
+          "name": "Matthew",
+          "languageCode": "en-US"
+        },
+        "availableVoices": [
+          {"name": "Matthew", "languageCode": "en-US"},
+          {"name": "Amy", "languageCode": "en-GB"},
+          {"name": "Olivia", "languageCode": "en-AU"},
+          {"name": "Lupe", "languageCode": "es-US"}
+        ],
+        "availableRegions": ["us-east-1", "us-west-2"]
+      },
+      "notes": "Nova Sonic uses the StartConversation streaming API. Whether this bypasses the 10-second Lex voice timeout is unconfirmed and must be validated in prototyping.",
+      "next": "3-connect-assistant"
+    },
+    {
+      "id": "3-connect-assistant",
+      "type": "ConnectAssistant",
+      "name": "Connect Assistant",
+      "description": "Associates the AI agent assistant domain with the contact. Configures the Orchestration AI agent that will handle the conversation.",
+      "configuration": {
+        "assistantDomain": "${AI_AGENT_DOMAIN_ARN}",
+        "agentType": "ORCHESTRATOR",
+        "prompt": "config/orchestrator_prompt.yaml",
+        "mcpTools": ["submit_query", "check_responses"],
+        "channels": ["VOICE", "CHAT"]
+      },
+      "notes": "The assistant domain ARN is configured at deployment time. The Orchestrator uses the custom prompt defined in orchestrator_prompt.yaml.",
+      "next": "4-get-customer-input"
+    },
+    {
+      "id": "4-get-customer-input",
+      "type": "GetCustomerInput",
+      "name": "Get Customer Input — Lex with QinConnectIntent",
+      "description": "Configured with a Lex bot that has AMAZON.QinConnectIntent enabled. This is where the Orchestrator takes over — the caller speaks, the Orchestrator reasons, invokes MCP tools, and speaks responses back via Nova Sonic. The GCI block only exits when the Orchestrator selects a terminal tool (COMPLETE, ESCALATION) or an error/timeout occurs.",
+      "configuration": {
+        "inputType": "Speech",
+        "lexBot": {
+          "botName": "${LEX_BOT_NAME}",
+          "botAlias": "${LEX_BOT_ALIAS}",
+          "intents": ["AMAZON.QinConnectIntent"]
+        },
+        "timeoutBehavior": {
+          "voiceTimeout": "10s (standard) or 60s (with message streaming)",
+          "note": "Nova Sonic streaming API may bypass the 10s limit — requires prototyping validation"
+        }
+      },
+      "branches": {
+        "intent": "5-check-tool-attribute",
+        "error": "6-error-handler",
+        "timeout": "6-error-handler"
+      },
+      "notes": "AMAZON.QinConnectIntent is the built-in intent that enables the Orchestrator AI agent to handle the conversation. The Orchestrator manages all polling, response delivery, and hold messaging internally."
+    },
+    {
+      "id": "5-check-tool-attribute",
+      "type": "CheckContactAttribute",
+      "name": "Check Contact Attribute — Tool Routing",
+      "description": "After the GCI block exits, the selected tool name is available as a Lex session attribute. Routes based on the terminal tool selected by the Orchestrator.",
+      "configuration": {
+        "attribute": {
+          "type": "Lex",
+          "key": "toolName"
+        },
+        "conditions": [
+          {
+            "value": "COMPLETE",
+            "description": "Orchestrator determined the interaction is complete.",
+            "next": "8-end-call"
+          },
+          {
+            "value": "ESCALATION",
+            "description": "Caller requested or Orchestrator determined a human agent is needed.",
+            "next": "7-transfer-to-agent"
+          }
+        ],
+        "defaultBranch": "6-error-handler"
+      },
+      "notes": "The tool name is set by the Orchestrator when it decides to end the conversation. Unrecognized values fall through to the error handler."
+    },
+    {
+      "id": "6-error-handler",
+      "type": "PlayPrompt",
+      "name": "Error Handler",
+      "description": "Plays an error message when the Orchestrator encounters an unrecoverable error or timeout.",
+      "configuration": {
+        "text": "I'm sorry, we encountered an issue processing your request. Let me try again.",
+        "voice": "Matthew"
+      },
+      "branches": {
+        "retry": "4-get-customer-input",
+        "end": "8-end-call"
+      },
+      "notes": "In production, implement retry logic with a counter (e.g., max 2 retries) stored as a contact attribute to avoid infinite retry loops."
+    },
+    {
+      "id": "7-transfer-to-agent",
+      "type": "TransferToQueue",
+      "name": "Transfer to Human Agent",
+      "description": "Transfers the caller to a human agent queue when escalation is requested.",
+      "configuration": {
+        "queue": "${ESCALATION_QUEUE_ARN}",
+        "transferMessage": "Let me connect you with a support agent who can help further."
+      },
+      "next": "8-end-call"
+    },
+    {
+      "id": "8-end-call",
+      "type": "DisconnectHangUp",
+      "name": "End Call",
+      "description": "Terminates the contact."
+    }
+  ],
+  "flowSummary": {
+    "totalBlocks": 8,
+    "comparisonToOptionA": "Option A requires 15+ blocks with a custom polling loop, Lex interrupt bot, Play Prompt blocks, and Lambda invocations. Option E reduces this to ~8 blocks by delegating all conversation logic to the Orchestrator.",
+    "criticalRisk": "The 10-second Lex voice timeout. If Nova Sonic's streaming API does not bypass this constraint, Option A becomes the primary path."
+  }
+}

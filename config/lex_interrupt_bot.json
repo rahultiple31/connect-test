@@ -1,0 +1,99 @@
+{
+  "name": "AsyncResponseInterruptBot",
+  "description": "Lex bot used in Option A's polling loop to detect caller interruptions during hold/wait periods. Listens for cancel, new question, and repeat intents. On silence timeout (4s), returns FallbackIntent so the contact flow continues polling.",
+  "requirements": ["5.1", "5.2", "5.3", "5.4", "5.5", "5.6"],
+  "botConfiguration": {
+    "idleSessionTTLInSeconds": 300,
+    "dataPrivacy": {
+      "childDirected": false
+    },
+    "locale": "en_US",
+    "voiceSettings": {
+      "voiceId": "Matthew",
+      "engine": "neural"
+    },
+    "sentimentAnalysis": false
+  },
+  "intents": [
+    {
+      "intentName": "CancelQuery",
+      "description": "Caller wants to cancel the current query and stop waiting for results.",
+      "sampleUtterances": [
+        "cancel",
+        "stop",
+        "never mind",
+        "forget it",
+        "cancel my request"
+      ],
+      "fulfillment": {
+        "type": "ReturnIntent",
+        "note": "Returns intent name to the contact flow. The flow handles session cleanup via mark_session_abandoned."
+      },
+      "confirmationPrompt": null,
+      "closingResponse": null
+    },
+    {
+      "intentName": "AskNewQuestion",
+      "description": "Caller wants to abandon the current query and ask a different question.",
+      "sampleUtterances": [
+        "new question",
+        "ask something else",
+        "different question",
+        "I have another question"
+      ],
+      "fulfillment": {
+        "type": "ReturnIntent",
+        "note": "Returns intent name to the contact flow. The flow abandons the current session and routes back to the Get Customer Input block for a new query."
+      },
+      "confirmationPrompt": null,
+      "closingResponse": null
+    },
+    {
+      "intentName": "RepeatLastResponse",
+      "description": "Caller wants to hear the most recently delivered response again.",
+      "sampleUtterances": [
+        "repeat",
+        "say that again",
+        "what did you say",
+        "repeat that",
+        "can you repeat"
+      ],
+      "fulfillment": {
+        "type": "ReturnIntent",
+        "note": "Returns intent name to the contact flow. The flow replays the last delivered response (stored in contact attributes) via TTS."
+      },
+      "confirmationPrompt": null,
+      "closingResponse": null
+    },
+    {
+      "intentName": "FallbackIntent",
+      "description": "Built-in fallback intent. Catches unrecognized speech input AND silence timeout (noinput). When triggered, the contact flow continues the polling loop.",
+      "parentIntentSignature": "AMAZON.FallbackIntent",
+      "fulfillment": {
+        "type": "ReturnIntent",
+        "note": "On silence timeout (noinput), Lex returns FallbackIntent. The contact flow treats this as 'no interruption' and continues the polling loop."
+      }
+    }
+  ],
+  "silenceTimeout": {
+    "valueMs": 4000,
+    "valueSeconds": 4,
+    "configurationMethod": "Session attribute x-amz-lex:audio:start-timeout-ms set to 4000 in the Get Customer Input block",
+    "sessionAttribute": {
+      "key": "x-amz-lex:audio:start-timeout-ms",
+      "value": "4000"
+    },
+    "rationale": "4 seconds balances responsiveness (caller doesn't wait too long to be heard) with polling frequency (shorter silence timeout means faster return to polling loop). Configured per Requirement 5.6."
+  },
+  "noinputHandling": {
+    "behavior": "On silence timeout, Lex returns FallbackIntent to the contact flow",
+    "contactFlowAction": "Continue polling loop — treat noinput as 'caller has no interruption'",
+    "note": "The silence timeout acts as the effective polling interval during the Lex interrupt listening phase. Combined with the hold message playback time, this determines the total cycle time between poll iterations."
+  },
+  "deploymentNotes": [
+    "The bot alias ARN is stored in SSM Parameter Store under the LEX_BOT_ALIAS key.",
+    "The bot must be built and published before the contact flow can reference it.",
+    "The silence timeout is set via session attributes in the Get Customer Input block, not in the bot definition itself.",
+    "In production, consider adding slot types for more nuanced intent recognition (e.g., capturing the new question text directly in AskNewQuestion)."
+  ]
+}

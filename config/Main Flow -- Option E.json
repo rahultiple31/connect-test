@@ -1,0 +1,285 @@
+{
+  "Version": "2019-10-30",
+  "StartAction": "Basic configurations",
+  "Metadata": {
+    "entryPointPosition": {
+      "x": 40,
+      "y": 40
+    },
+    "ActionMetadata": {
+      "a21ecfd3-54af-450e-a216-43663856d6dd": {
+        "position": {
+          "x": -276,
+          "y": 576
+        }
+      },
+      "b8ddf7f6-bdc6-4973-9fc9-19a6cacc9a43": {
+        "position": {
+          "x": -8,
+          "y": 570.4
+        }
+      },
+      "Basic configurations": {
+        "position": {
+          "x": -276.8,
+          "y": 218.4
+        },
+        "isFriendlyName": true,
+        "parameters": {
+          "FlowModuleId": {
+            "displayName": "Basic setting configurations",
+            "Alias": {
+              "displayName": "$LATEST"
+            }
+          }
+        },
+        "contactFlowModuleName": "Basic setting configurations"
+      },
+      "0b2bb813-d791-4afc-88d3-88ed83b235b8": {
+        "position": {
+          "x": 560,
+          "y": 520
+        }
+      },
+      "b9bbbc48-19d8-4338-ae4b-d4124b45d1e7": {
+        "position": {
+          "x": 840,
+          "y": 780
+        }
+      },
+      "0d7319e1-4c52-4ad0-bdfd-31bdf3f04fbb": {
+        "position": {
+          "x": 280,
+          "y": 520
+        }
+      },
+      "Profile lookup": {
+        "position": {
+          "x": -10.4,
+          "y": 248
+        },
+        "isFriendlyName": true,
+        "parameters": {
+          "FlowModuleId": {
+            "displayName": "Customer profile lookup",
+            "Alias": {
+              "displayName": "$LATEST"
+            }
+          }
+        },
+        "contactFlowModuleName": "Customer profile lookup"
+      },
+      "Conversational AI": {
+        "position": {
+          "x": 559.2,
+          "y": 258.4
+        },
+        "isFriendlyName": true,
+        "parameters": {
+          "LexV2Bot": {
+            "AliasArn": {
+              "displayName": "live",
+              "useLexBotDropdown": true,
+              "lexV2BotName": "OptionEQinConnectBot"
+            }
+          }
+        },
+        "useLexBotDropdown": true,
+        "lexV2BotName": "OptionEQinConnectBot",
+        "lexV2BotAliasName": "live",
+        "conditionMetadata": []
+      },
+      "1763b77d-e6c9-4be6-ab3a-2d925ee45363": {
+        "position": {
+          "x": 280,
+          "y": 260
+        },
+        "parameters": {
+          "TextToSpeechVoice": {
+            "languageCode": "en-US"
+          }
+        },
+        "overrideConsoleVoice": true
+      }
+    },
+    "Annotations": [],
+    "name": "Main Flow -- Option E",
+    "description": "",
+    "type": "contactFlow",
+    "status": "published",
+    "hash": {}
+  },
+  "Actions": [
+    {
+      "Parameters": {
+        "Text": "Error calling setting basic configurations module"
+      },
+      "Identifier": "a21ecfd3-54af-450e-a216-43663856d6dd",
+      "Type": "MessageParticipant",
+      "Transitions": {
+        "NextAction": "b9bbbc48-19d8-4338-ae4b-d4124b45d1e7",
+        "Errors": [
+          {
+            "NextAction": "b9bbbc48-19d8-4338-ae4b-d4124b45d1e7",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Text": "Error in profile lookup\n"
+      },
+      "Identifier": "b8ddf7f6-bdc6-4973-9fc9-19a6cacc9a43",
+      "Type": "MessageParticipant",
+      "Transitions": {
+        "NextAction": "b9bbbc48-19d8-4338-ae4b-d4124b45d1e7",
+        "Errors": [
+          {
+            "NextAction": "b9bbbc48-19d8-4338-ae4b-d4124b45d1e7",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "FlowModuleId": "0dd99b5d-c9ca-4868-a225-060a9368aad6:$LATEST"
+      },
+      "Identifier": "Basic configurations",
+      "Type": "InvokeFlowModule",
+      "Transitions": {
+        "NextAction": "Profile lookup",
+        "Errors": [
+          {
+            "NextAction": "Profile lookup",
+            "ErrorType": "NoMatchingCondition"
+          },
+          {
+            "NextAction": "a21ecfd3-54af-450e-a216-43663856d6dd",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Text": "Lex error"
+      },
+      "Identifier": "0b2bb813-d791-4afc-88d3-88ed83b235b8",
+      "Type": "MessageParticipant",
+      "Transitions": {
+        "NextAction": "b9bbbc48-19d8-4338-ae4b-d4124b45d1e7",
+        "Errors": [
+          {
+            "NextAction": "b9bbbc48-19d8-4338-ae4b-d4124b45d1e7",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {},
+      "Identifier": "b9bbbc48-19d8-4338-ae4b-d4124b45d1e7",
+      "Type": "DisconnectParticipant",
+      "Transitions": {}
+    },
+    {
+      "Parameters": {
+        "Text": "Error setting voice."
+      },
+      "Identifier": "0d7319e1-4c52-4ad0-bdfd-31bdf3f04fbb",
+      "Type": "MessageParticipant",
+      "Transitions": {
+        "NextAction": "b9bbbc48-19d8-4338-ae4b-d4124b45d1e7",
+        "Errors": [
+          {
+            "NextAction": "b9bbbc48-19d8-4338-ae4b-d4124b45d1e7",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "FlowModuleId": "10a9328f-168c-49af-bd44-3d6bfcaf0da9:$LATEST"
+      },
+      "Identifier": "Profile lookup",
+      "Type": "InvokeFlowModule",
+      "Transitions": {
+        "NextAction": "1763b77d-e6c9-4be6-ab3a-2d925ee45363",
+        "Conditions": [
+          {
+            "NextAction": "1763b77d-e6c9-4be6-ab3a-2d925ee45363",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "Profile found"
+              ]
+            }
+          },
+          {
+            "NextAction": "1763b77d-e6c9-4be6-ab3a-2d925ee45363",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "No profile found"
+              ]
+            }
+          }
+        ],
+        "Errors": [
+          {
+            "NextAction": "1763b77d-e6c9-4be6-ab3a-2d925ee45363",
+            "ErrorType": "NoMatchingCondition"
+          },
+          {
+            "NextAction": "b8ddf7f6-bdc6-4973-9fc9-19a6cacc9a43",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Text": "Hi, thanks for calling Nexthink Spark. How can we help you?",
+        "LexV2Bot": {
+          "AliasArn": "arn:aws:lex:us-east-1:123456789012:bot-alias/YOUR_BOT_ID/YOUR_ALIAS_ID"
+        }
+      },
+      "Identifier": "Conversational AI",
+      "Type": "ConnectParticipantWithLexBot",
+      "Transitions": {
+        "NextAction": "0b2bb813-d791-4afc-88d3-88ed83b235b8",
+        "Errors": [
+          {
+            "NextAction": "b9bbbc48-19d8-4338-ae4b-d4124b45d1e7",
+            "ErrorType": "NoMatchingCondition"
+          },
+          {
+            "NextAction": "0b2bb813-d791-4afc-88d3-88ed83b235b8",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "TextToSpeechVoice": "Matthew",
+        "TextToSpeechEngine": "Generative",
+        "TextToSpeechStyle": "None"
+      },
+      "Identifier": "1763b77d-e6c9-4be6-ab3a-2d925ee45363",
+      "Type": "UpdateContactTextToSpeechVoice",
+      "Transitions": {
+        "NextAction": "Conversational AI",
+        "Errors": [
+          {
+            "NextAction": "0d7319e1-4c52-4ad0-bdfd-31bdf3f04fbb",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    }
+  ]
+}
